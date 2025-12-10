@@ -7,7 +7,7 @@ Acest proiect a fost realizat ca parte a evaluării pentru cursul de Topici Spec
 ## 👥 Membrii echipei
 - Popescu Paullo-Robertto-Karlos 506
 - Horceag Andrei 506
-- Francisca Pasare 506
+- Pasăre Roxana-Francisca​ 506
 
 ## 🚀 Funcționalități Cheie
 ### 1. Ingestie și Normalizare de Date
