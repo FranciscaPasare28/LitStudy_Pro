@@ -202,6 +202,37 @@ if docs:
         if sel_source:
             filtered_docs = [d for d in filtered_docs if hasattr(d, 'source') and d.source in sel_source]
 
+    # C. Filtru Autori
+    # Colectam toti autorii unici din documentele ramase
+    all_authors = set()
+    for d in docs:
+        if d.authors:
+            for a in d.authors:
+                all_authors.add(a.name)
+    
+    if all_authors:
+        # Sortam alfabetic pentru a fi usor de gasit
+        sel_authors = st.sidebar.multiselect("👤 Filtru Autori", sorted(list(all_authors)))
+        if sel_authors:
+            # Pastram documentul daca MACAR UNUL din autorii selectati a contribuit la el
+            filtered_docs = [
+                d for d in filtered_docs 
+                if d.authors and any(a.name in sel_authors for a in d.authors)
+            ]
+
+    # D. Cautare Text in Titlu
+    text_search = st.sidebar.text_input("🔍 Caută în Titlu (ex: learn)")
+    if text_search:
+        # Filtrare case-insensitive (nu conteaza majusculele)
+        filtered_docs = [
+            d for d in filtered_docs 
+            if d.title and text_search.lower() in d.title.lower()
+        ]
+
+    st.sidebar.markdown("---")
+    # Afisare contor cu bara de progres vizuala
+    procent = len(filtered_docs) / len(docs) if len(docs) > 0 else 0
+    st.sidebar.progress(procent)
     st.sidebar.info(f"Se analizează: **{len(filtered_docs)}** / {len(docs)} articole")
 
 # --- INTERFATA PRINCIPALA ---
