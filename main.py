@@ -11,6 +11,22 @@ from wordcloud import WordCloud
 from fpdf import FPDF
 import tempfile
 import os
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("debug.log"),   # log in fisier
+        logging.StreamHandler()             # log in consola Streamlit
+    ]
+)
+
+logger = logging.getLogger(__name__)
+
+# logger.debug("mesaj")
+# logger.error("eroare")
+
 
 # --- CONFIGURARE PAGINA ---
 st.set_page_config(
