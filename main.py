@@ -29,7 +29,7 @@ st.markdown("""
 st.title("📚 LitStudy Pro: Analiză Bibliometrică Avansată")
 st.markdown("### Instrument pentru analiza automată a literaturii științifice")
 
-# --- 1. SIDEBAR: DATA LOADING ---
+# --- SIDEBAR: DATA LOADING ---
 st.sidebar.header("1. Sursă Date")
 sursa_date = st.sidebar.radio("Metoda de import:", ("Căutare Live (DBLP)", "Fișier Local"))
 
@@ -81,7 +81,7 @@ else:
 # Preluăm documentele din memorie
 docs = st.session_state['docs']
 
-# --- 2. SISTEM DE FILTRARE (CERINȚA 5) ---
+# --- SISTEM DE FILTRARE ---
 filtered_docs = docs
 if docs:
     st.sidebar.markdown("---")
@@ -105,9 +105,8 @@ if docs:
 
     st.sidebar.info(f"Se analizează: **{len(filtered_docs)}** / {len(docs)} articole")
 
-# --- 3. INTERFAȚA PRINCIPALĂ ---
+# --- INTERFAȚA PRINCIPALĂ ---
 if filtered_docs:
-    # Definim 4 Tab-uri pentru a acoperi toate cerințele
     tab1, tab2, tab3, tab4 = st.tabs([
         "📊 Dashboard Statistici", 
         "🧠 Topic Modeling (NLP)", 
@@ -115,7 +114,7 @@ if filtered_docs:
         "📥 Export Date"
     ])
 
-    # === TAB 1: STATISTICI EXTINSE (CERINȚA 2) ===
+    # === TAB 1: STATISTICI ===
     with tab1:
         st.subheader("Privire de ansamblu")
         
@@ -134,17 +133,46 @@ if filtered_docs:
 
         st.markdown("---")
         
-        # Statistici Extra: Surse
         col3, col4 = st.columns(2)
         with col3:
-            st.markdown("**Top Locații de Publicare (Venues)**")
-            try:
-                fig3 = plt.figure(figsize=(8, 4))
-                litstudy.plot_source_histogram(filtered_docs, limit=10)
+            st.markdown("**Top Surse de Publicare**") 
+            # --- COD MANUAL PENTRU GRAFIC SURSE ---
+            # Vizualizează 'Top Surse de Publicare' pentru a identifica nucleul de cercetare.
+            # Interpretare:
+            # 1. Observăm o distribuție "Long Tail" specifică bibliometriei (Legea lui Bradford).
+            # 2. UCI ML Repository domină ca sursă de date primară (Dataset Hub).
+            # 3. PMLR și Springer reprezintă canalele academice (Conferințe & Jurnale).
+
+            #"Pe axa OX avem 'Venues', adică locurile unde au apărut lucrările. Graficul nostru arată o diversitate mare:
+            #Avem surse de date (precum UCI Repository).
+            #Avem conferințe de specialitate (PMLR).
+            #Și avem mari edituri academice (Springer, CRC Press) care grupează mai multe jurnale sub aceeași umbrelă."
+            
+            sources_list = []
+            for d in filtered_docs:
+                if hasattr(d, 'source') and d.source and str(d.source) != "nan":
+                    sources_list.append(d.source)
+                elif hasattr(d, 'publisher') and d.publisher:
+                    sources_list.append(d.publisher)
+            
+            if len(sources_list) > 0:
+                s_counts = pd.Series(sources_list).value_counts().head(10)
+                
+                fig3, ax = plt.subplots(figsize=(8, 4))
+                s_counts.plot(kind='bar', ax=ax, color='#4682B4') 
+                
+                ax.set_ylabel("No. of documents") 
+                ax.set_xlabel("") # Scoatem eticheta de jos ca să fie mai curat
+                
+                # Rotim etichetele de jos pentru a se citi ușor
                 plt.xticks(rotation=45, ha='right')
+                
+                # Ajustăm marginile ca să nu taie textul
+                plt.tight_layout()
+                
                 st.pyplot(fig3, use_container_width=True)
-            except:
-                st.warning("Nu există date despre surse.")
+            else:
+                st.warning("Nu au fost găsite informații despre Jurnal/Conferință în date.")
 
         with col4:
             st.markdown("**Word Cloud (Din Titluri)**")
@@ -250,7 +278,7 @@ if filtered_docs:
         except Exception as e:
             st.error(f"Eroare rețea: {e}")
 
-    # === TAB 4: DATE & EXPORT (CERINȚA 3) ===
+    # === TAB 4: DATE & EXPORT ===
     with tab4:
         st.subheader("Export Date")
         
