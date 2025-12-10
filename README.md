@@ -5,7 +5,7 @@
 Acest proiect a fost realizat ca parte a evaluării pentru cursul de Topici Speciale în Inginerie Software - Master Inginerie Software Anul 2, demonstrând reproducerea, îmbunătățirea și integrarea unui articol științific într-un produs software funcțional.
 
 ## 👥 Membrii echipei
-- Popescu Paullo-Robertto-Karloss Grupa 506
+- Popescu Paullo-Robertto-Karlos 506
 - Horceag Andrei 506
 - Francisca Pasare 506
 
