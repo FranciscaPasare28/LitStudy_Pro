@@ -25,7 +25,7 @@ Acest proiect a fost realizat ca parte a evaluării pentru cursul de Topici Spec
 - **Word Cloud:** Generare vizuală a celor mai frecvenți termeni din titlurile articolelor.
 
 ### 3. NLP & Topic Modeling
-- Implementare personalizată a algoritmului NMF (Non-negative Matrix Factorization) folosind `scikit-learn`.
+- Implementare personalizată a algoritmului **NMF (Non-negative Matrix Factorization)** folosind `scikit-learn`.
 
 - Extragerea automată a subiectelor (topics) din abstractele articolelor.
 
@@ -49,6 +49,7 @@ Acest proiect a fost realizat ca parte a evaluării pentru cursul de Topici Spec
 
 ## 🛠️ Arhitectura Tehnică
 Proiectul este construit folosind ecosistemul Python Data Science:
+- **Limbaj:** Python **3.12.10** (Versiune necesară). ❗
 
 - **Frontend:** `Streamlit` (pentru interfață web rapidă și interactivă).
 
