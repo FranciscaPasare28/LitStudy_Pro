@@ -9,23 +9,6 @@ import pandas as pd
 import streamlit.components.v1 as components
 from wordcloud import WordCloud
 import os
-import logging
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("debug.log"),   # log în fișier
-        logging.StreamHandler()             # log în consola Streamlit
-    ]
-)
-
-logger = logging.getLogger(__name__)
-
-# Logging pentru debug
-# logger.debug("mesaj")
-# logger.error("eroare")
-
 
 # --- CONFIGURARE PAGINĂ ---
 st.set_page_config(
@@ -54,34 +37,6 @@ sursa_date = st.sidebar.radio("Metoda de import:", ("Căutare Live (DBLP)", "Fi�
 if 'docs' not in st.session_state:
     st.session_state['docs'] = []
 
-# --- FUNCȚIE DE NORMALIZARE (FIX PENTRU TOATE FORMATELE) ---
-def normalize_documents(new_docs):
-    """
-    Această funcție repară datele lipsă din obiectele litstudy,
-    indiferent dacă vin din CSV, BIB sau RIS.
-    """
-    count_fixed = 0
-    for new_doc in new_docs:
-        # 1. FIX SOURCE (Jurnal/Conferință)
-        # Dacă 'source' lipsește, încercăm să îl găsim în alte câmpuri standard BibTeX/RIS
-        if not hasattr(new_doc, 'source') or not new_doc.source or str(new_doc.source).lower() == 'nan':
-            new_source = None
-            # Ordinea de prioritate pentru a găsi sursa:
-            if hasattr(new_doc, 'journal') and new_doc.journal:
-                new_source = new_doc.journal
-            elif hasattr(new_doc, 'booktitle') and new_doc.booktitle:
-                new_source = new_doc.booktitle
-            elif hasattr(new_doc, 'publisher') and new_doc.publisher:
-                new_source = new_doc.publisher
-            
-            # Aplicăm sursa găsită
-            if new_source:
-                new_doc.source = str(new_source)
-                count_fixed += 1
-            else:
-                new_doc.source = "Unknown" # Ca să nu crape graficul
-    return new_docs, count_fixed
-
 # LOGICA DE ÎNCĂRCARE
 new_docs = []
 
@@ -97,7 +52,6 @@ if sursa_date == "Căutare Live (DBLP)":
         with st.spinner('Se descarcă datele de pe DBLP...'):
             try:
                 new_docs = litstudy.search_dblp(query, limit=limit_docs)
-                new_docs, _ = normalize_documents(new_docs)
                 regenerate_word_cloud = True
                 st.session_state['docs'] = new_docs
                 st.success(f"Găsite: {len(new_docs)} articole.")
@@ -105,9 +59,7 @@ if sursa_date == "Căutare Live (DBLP)":
                 st.error(f"Eroare: {e}")
 
 else:
-    uploaded_file = st.sidebar.file_uploader(
-        "Încarcă fișier (BibTeX, RIS, CSV)", 
-        type=["bib", "ris", "csv"])
+    uploaded_file = st.sidebar.file_uploader("Încarcă fișier (BIB, RIS, CSV)", type=["bib", "ris", "csv"])
     if uploaded_file:
         temp_name = f"temp_{uploaded_file.name}"
         with open(temp_name, "wb") as f:
@@ -115,43 +67,14 @@ else:
         
         try:
             with st.spinner('Se procesează fișierul...'):
-                if temp_name.endswith(".csv"):
-                    # 1. CITIM CU PANDAS PENTRU A REPARA DATELE
-                    df_temp = pd.read_csv(temp_name)
-                    
-                    # Redenumim 'link' -> 'doi' pentru Litstudy
-                    if 'link' in df_temp.columns and 'doi' not in df_temp.columns:
-                        df_temp.rename(columns={'link': 'doi'}, inplace=True)
-                    
-                    # Salvăm CSV-ul temporar corectat
-                    df_temp.to_csv(temp_name, index=False)
-                    
-                    # Încărcăm documentele de bază
-                    docs = litstudy.load_csv(temp_name)
-                    
-                    # --- FIX CRITIC PENTRU SURSE ---
-                    # Litstudy ignoră coloana 'source' dacă nu e standard. O injectăm manual.
-                    if 'source' in df_temp.columns:
-                        for i, doc in enumerate(docs):
-                            if i < len(df_temp):
-                                val = df_temp.iloc[i]['source']
-                                # Dacă avem o valoare validă în CSV, o punem în obiectul doc
-                                if not pd.isna(val) and str(val).lower() != 'nan':
-                                    doc.source = str(val)
-                                    # Putem completa și jurnalul pentru siguranță
-                                    doc.journal = str(val)
-                elif temp_name.endswith(".bib"):
-                    docs = litstudy.load_bibtex(temp_name)
+                if temp_name.endswith(".bib"):
+                    new_docs = litstudy.load_bibtex(temp_name)
                 elif temp_name.endswith(".ris"):
-                    docs = litstudy.load_ris(temp_name)
-
-                # --- APLICĂM NORMALIZAREA PENTRU TOATE ---
-                docs, fixed_count = normalize_documents(docs) 
-                st.session_state['docs'] = docs
-                st.sidebar.success(f"Fișier procesat: {len(docs)} articole")
-
-                if fixed_count > 0:
-                    st.sidebar.info(f"🛠️ S-au normalizat sursele pentru {fixed_count} articole.")
+                    new_docs = litstudy.load_ris(temp_name)
+                elif temp_name.endswith(".csv"):
+                    new_docs = litstudy.load_csv(temp_name)
+                st.session_state['docs'] = new_docs
+                st.sidebar.success(f"Fișier încărcat: {uploaded_file.name}")
         except Exception as e:
             st.sidebar.error(f"Eroare fișier: {e}")
 
@@ -184,6 +107,7 @@ if docs:
 
 # --- INTERFAȚA PRINCIPALĂ ---
 if filtered_docs:
+    # Definim 4 Tab-uri pentru a acoperi toate cerințele
     tab1, tab2, tab3, tab4 = st.tabs([
         "📊 Dashboard Statistici", 
         "🧠 Topic Modeling (NLP)", 
@@ -191,7 +115,7 @@ if filtered_docs:
         "📥 Export Date"
     ])
 
-    # === TAB 1: STATISTICI ===
+    # === TAB 1: STATISTICI EXTINSE ===
     with tab1:
         st.subheader("Privire de ansamblu")
         
@@ -210,46 +134,17 @@ if filtered_docs:
 
         st.markdown("---")
         
+        # Statistici Extra: Surse
         col3, col4 = st.columns(2)
         with col3:
-            st.markdown("**Top Surse de Publicare**") 
-            # --- COD MANUAL PENTRU GRAFIC SURSE ---
-            # Vizualizează 'Top Surse de Publicare' pentru a identifica nucleul de cercetare.
-            # Interpretare:
-            # 1. Observăm o distribuție "Long Tail" specifică bibliometriei (Legea lui Bradford).
-            # 2. UCI ML Repository domină ca sursă de date primară (Dataset Hub).
-            # 3. PMLR și Springer reprezintă canalele academice (Conferințe & Jurnale).
-
-            #"Pe axa OX avem 'Venues', adică locurile unde au apărut lucrările. Graficul nostru arată o diversitate mare:
-            #Avem surse de date (precum UCI Repository).
-            #Avem conferințe de specialitate (PMLR).
-            #Și avem mari edituri academice (Springer, CRC Press) care grupează mai multe jurnale sub aceeași umbrelă."
-
-            sources_list = []
-            for d in filtered_docs:
-                if hasattr(d, 'source') and d.source and str(d.source) != "nan":
-                    sources_list.append(d.source)
-                elif hasattr(d, 'publisher') and d.publisher:
-                    sources_list.append(d.publisher)
-            
-            if len(sources_list) > 0:
-                s_counts = pd.Series(sources_list).value_counts().head(10)
-                
-                fig3, ax = plt.subplots(figsize=(8, 4))
-                s_counts.plot(kind='bar', ax=ax, color='#4682B4') 
-                
-                ax.set_ylabel("No. of documents") 
-                ax.set_xlabel("") # Scoatem eticheta de jos ca să fie mai curat
-                
-                # Rotim etichetele de jos pentru a se citi ușor
+            st.markdown("**Top Locații de Publicare (Venues)**")
+            try:
+                fig3 = plt.figure(figsize=(8, 4))
+                litstudy.plot_source_histogram(filtered_docs, limit=10)
                 plt.xticks(rotation=45, ha='right')
-                
-                # Ajustăm marginile ca să nu taie textul
-                plt.tight_layout()
-                
                 st.pyplot(fig3, use_container_width=True)
-            else:
-                st.warning("Nu au fost găsite informații despre Jurnal/Conferință în date.")
+            except:
+                st.warning("Nu există date despre surse.")
 
         with col4:
             st.markdown("**Word Cloud (Din Titluri)**")
