@@ -37,6 +37,36 @@ sursa_date = st.sidebar.radio("Metoda de import:", ("Căutare Live (DBLP)", "Fi�
 if 'docs' not in st.session_state:
     st.session_state['docs'] = []
 
+# --- FUNCȚIE DE NORMALIZARE (FIX PENTRU TOATE FORMATELE) ---
+def normalize_documents(new_docs):
+    """
+    Această funcție repară datele lipsă din obiectele litstudy,
+    indiferent dacă vin din CSV, BIB sau RIS.
+    """
+    count_fixed = 0
+    for new_doc in new_docs:
+        # 1. FIX SOURCE (Jurnal/Conferință)
+        # Dacă 'source' lipsește, încercăm să îl găsim în alte câmpuri standard BibTeX/RIS
+        if not hasattr(new_doc, 'source') or not new_doc.source or str(new_doc.source).lower() == 'nan':
+            new_source = None
+            
+            # Ordinea de prioritate pentru a găsi sursa:
+            if hasattr(new_doc, 'journal') and new_doc.journal:
+                new_source = new_doc.journal
+            elif hasattr(new_doc, 'booktitle') and new_doc.booktitle:
+                new_source = new_doc.booktitle
+            elif hasattr(new_doc, 'publisher') and new_doc.publisher:
+                new_source = new_doc.publisher
+            
+            # Aplicăm sursa găsită
+            if new_source:
+                new_doc.source = str(new_source)
+                count_fixed += 1
+            else:
+                new_doc.source = "Unknown" # Ca să nu crape graficul
+
+    return new_docs, count_fixed
+
 # LOGICA DE ÎNCĂRCARE
 new_docs = []
 
@@ -52,6 +82,7 @@ if sursa_date == "Căutare Live (DBLP)":
         with st.spinner('Se descarcă datele de pe DBLP...'):
             try:
                 new_docs = litstudy.search_dblp(query, limit=limit_docs)
+                new_docs, _ = normalize_documents(new_docs)
                 regenerate_word_cloud = True
                 st.session_state['docs'] = new_docs
                 st.success(f"Găsite: {len(new_docs)} articole.")
@@ -67,14 +98,43 @@ else:
         
         try:
             with st.spinner('Se procesează fișierul...'):
-                if temp_name.endswith(".bib"):
-                    new_docs = litstudy.load_bibtex(temp_name)
+                if temp_name.endswith(".csv"):
+                    # 1. CITIM CU PANDAS PENTRU A REPARA DATELE
+                    df_temp = pd.read_csv(temp_name)
+                    
+                    # Redenumim 'link' -> 'doi' pentru Litstudy
+                    if 'link' in df_temp.columns and 'doi' not in df_temp.columns:
+                        df_temp.rename(columns={'link': 'doi'}, inplace=True)
+                    
+                    # Salvăm CSV-ul temporar corectat
+                    df_temp.to_csv(temp_name, index=False)
+                    
+                    # Încărcăm documentele de bază
+                    docs = litstudy.load_csv(temp_name)
+                    
+                    # --- FIX CRITIC PENTRU SURSE ---
+                    # Litstudy ignoră coloana 'source' dacă nu e standard. O injectăm manual.
+                    if 'source' in df_temp.columns:
+                        for i, doc in enumerate(docs):
+                            if i < len(df_temp):
+                                val = df_temp.iloc[i]['source']
+                                # Ne asigurăm că e text valid
+                                if pd.isna(val) or str(val).lower() == 'nan':
+                                    doc.source = "Unknown"
+                                else:
+                                    doc.source = str(val)
+                elif temp_name.endswith(".bib"):
+                    docs = litstudy.load_bibtex(temp_name)
                 elif temp_name.endswith(".ris"):
-                    new_docs = litstudy.load_ris(temp_name)
-                elif temp_name.endswith(".csv"):
-                    new_docs = litstudy.load_csv(temp_name)
-                st.session_state['docs'] = new_docs
-                st.sidebar.success(f"Fișier încărcat: {uploaded_file.name}")
+                    docs = litstudy.load_ris(temp_name)
+
+                # --- APLICĂM NORMALIZAREA PENTRU TOATE ---
+                docs, fixed_count = normalize_documents(docs) 
+                st.session_state['docs'] = docs
+                st.sidebar.success(f"Fișier procesat: {len(docs)} articole")
+
+                if fixed_count > 0:
+                    st.sidebar.info(f"🛠️ S-au normalizat sursele pentru {fixed_count} articole.")
         except Exception as e:
             st.sidebar.error(f"Eroare fișier: {e}")
 
@@ -147,7 +207,7 @@ if filtered_docs:
             #Avem surse de date (precum UCI Repository).
             #Avem conferințe de specialitate (PMLR).
             #Și avem mari edituri academice (Springer, CRC Press) care grupează mai multe jurnale sub aceeași umbrelă."
-            
+
             sources_list = []
             for d in filtered_docs:
                 if hasattr(d, 'source') and d.source and str(d.source) != "nan":
