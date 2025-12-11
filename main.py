@@ -458,7 +458,7 @@ if filtered_docs:
         # 1. EXPORT CSV
         with col_csv:
             st.markdown("#### 1. Date Brute (CSV)")
-            st.dataframe(df.head(5), use_container_width=True)
+            st.dataframe(df, use_container_width=True)
             csv = df.to_csv(index=False).encode('utf-8')
             st.download_button("📄 Descarcă CSV", data=csv, file_name="litstudy_data.csv", mime="text/csv")
 
