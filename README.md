@@ -11,7 +11,7 @@ Articol Litstudy: https://www.sciencedirect.com/science/article/pii/S23527110220
 - Horceag Andrei 506
 - Pasăre Roxana-Francisca​ 506
 
-## Demo al aplicației
+## 🎬 Demo al aplicației
 Puteți vizualiza live demo-ul aplicației aici: [Demo Litstudy Pro](https://youtu.be/fNvYmaUuIEA)
 
 Sau dacă apasați pe imaginea de mai jos:
